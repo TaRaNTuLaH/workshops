@@ -88,91 +88,91 @@ const accessKey = new aws.iam.AccessKey("s3UserAccessKey", {
 export const accessKeyId = accessKey.id;
 export const secretAccessKey = accessKey.secret;
 
+// Create VPC 
+const vpc = new aws.ec2.Vpc("myVpc", {
+    cidrBlock: "10.0.0.0/16",
+    enableDnsSupport: true, // Enable DNS support
+    enableDnsHostnames: true, // Enable DNS hostnames
+    tags: { Name: "myVpc" },
+});
 
-// const vpc = new aws.ec2.Vpc("myVpc", {
-//     cidrBlock: "10.0.0.0/16",
-//     enableDnsSupport: true, // Enable DNS support
-//     enableDnsHostnames: true, // Enable DNS hostnames
-//     tags: { Name: "myVpc" },
-// });
+// Create public subnets
+const subnet1 = new aws.ec2.Subnet("subnet1", {
+    vpcId: vpc.id,
+    cidrBlock: "10.0.1.0/24",
+    availabilityZone: "eu-west-1a",
+    mapPublicIpOnLaunch: true, // Ensure instances get a public IP
+    tags: { Name: "subnet1" },
+});
 
-// // Create public subnets
-// const subnet1 = new aws.ec2.Subnet("subnet1", {
-//     vpcId: vpc.id,
-//     cidrBlock: "10.0.1.0/24",
-//     availabilityZone: "eu-west-1a",
-//     mapPublicIpOnLaunch: true, // Ensure instances get a public IP
-//     tags: { Name: "subnet1" },
-// });
+const subnet2 = new aws.ec2.Subnet("subnet2", {
+    vpcId: vpc.id,
+    cidrBlock: "10.0.2.0/24",
+    availabilityZone: "eu-west-1b",
+    mapPublicIpOnLaunch: true, // Ensure instances get a public IP
+    tags: { Name: "subnet2" },
+});
 
-// const subnet2 = new aws.ec2.Subnet("subnet2", {
-//     vpcId: vpc.id,
-//     cidrBlock: "10.0.2.0/24",
-//     availabilityZone: "eu-west-1b",
-//     mapPublicIpOnLaunch: true, // Ensure instances get a public IP
-//     tags: { Name: "subnet2" },
-// });
+// Create an Internet Gateway
+const gateway = new aws.ec2.InternetGateway("gateway", {
+    vpcId: vpc.id,
+    tags: { Name: "gateway" },
+});
 
-// // Create an Internet Gateway
-// const gateway = new aws.ec2.InternetGateway("gateway", {
-//     vpcId: vpc.id,
-//     tags: { Name: "gateway" },
-// });
+// Create a route table and a public route
+const routeTable = new aws.ec2.RouteTable("routeTable", {
+    vpcId: vpc.id,
+    routes: [{
+        cidrBlock: "0.0.0.0/0",
+        gatewayId: gateway.id,
+    }],
+    tags: { Name: "routeTable" },
+});
 
-// // Create a route table and a public route
-// const routeTable = new aws.ec2.RouteTable("routeTable", {
-//     vpcId: vpc.id,
-//     routes: [{
-//         cidrBlock: "0.0.0.0/0",
-//         gatewayId: gateway.id,
-//     }],
-//     tags: { Name: "routeTable" },
-// });
+// Associate route table with subnets
+new aws.ec2.RouteTableAssociation("subnet1RouteTableAssociation", {
+    subnetId: subnet1.id,
+    routeTableId: routeTable.id,
+});
 
-// // Associate route table with subnets
-// new aws.ec2.RouteTableAssociation("subnet1RouteTableAssociation", {
-//     subnetId: subnet1.id,
-//     routeTableId: routeTable.id,
-// });
+new aws.ec2.RouteTableAssociation("subnet2RouteTableAssociation", {
+    subnetId: subnet2.id,
+    routeTableId: routeTable.id,
+});
 
-// new aws.ec2.RouteTableAssociation("subnet2RouteTableAssociation", {
-//     subnetId: subnet2.id,
-//     routeTableId: routeTable.id,
-// });
+// Create RDS Subnet Group
+const dbSubnetGroup = new aws.rds.SubnetGroup("dbsubnetgroup", {
+    subnetIds: [subnet1.id, subnet2.id],
+    tags: {
+        Name: "My DB subnet group",
+    },
+});
 
-// // Create RDS Subnet Group
-// const dbSubnetGroup = new aws.rds.SubnetGroup("dbsubnetgroup", {
-//     subnetIds: [subnet1.id, subnet2.id],
-//     tags: {
-//         Name: "My DB subnet group",
-//     },
-// });
+// Create Security Group for RDS
+const dbSecurityGroup = new aws.ec2.SecurityGroup("dbSecurityGroup", {
+    vpcId: vpc.id,
+    description: "Allow database access",
+    ingress: [{
+        protocol: "tcp",
+        fromPort: 5432,
+        toPort: 5432,
+        cidrBlocks: ["0.0.0.0/0"], // Open to all IPs (for workshop purposes) - DO NOT USE ON PRODUCTION
+    }],
+});
 
-// // Create Security Group for RDS
-// const dbSecurityGroup = new aws.ec2.SecurityGroup("dbSecurityGroup", {
-//     vpcId: vpc.id,
-//     description: "Allow database access",
-//     ingress: [{
-//         protocol: "tcp",
-//         fromPort: 5432,
-//         toPort: 5432,
-//         cidrBlocks: ["0.0.0.0/0"], // Open to all IPs (for workshop purposes)
-//     }],
-// });
+// Create RDS instance
+const rdsInstance = new aws.rds.Instance("mydbinstance", {
+    allocatedStorage: 20,
+    engine: "postgres",
+    engineVersion: "14",
+    instanceClass: "db.t3.micro",
+    dbName: "workshop",
+    username: "dupa1234567890",
+    password: "super_tajne_haslo",
+    dbSubnetGroupName: dbSubnetGroup.name,
+    vpcSecurityGroupIds: [dbSecurityGroup.id],
+    skipFinalSnapshot: true,
+    publiclyAccessible: true, // Ensure the DB is publicly accessible DO NOT USE ON PRODUCTION
+});
 
-// // Create RDS instance
-// const rdsInstance = new aws.rds.Instance("mydbinstance", {
-//     allocatedStorage: 20,
-//     engine: "postgres",
-//     engineVersion: "14",
-//     instanceClass: "db.t3.micro",
-//     dbName: "workshop",
-//     username: "dupa1234567890",
-//     password: "super_tajne_haslo",
-//     dbSubnetGroupName: dbSubnetGroup.name,
-//     vpcSecurityGroupIds: [dbSecurityGroup.id],
-//     skipFinalSnapshot: true,
-//     publiclyAccessible: true, // Ensure the DB is publicly accessible
-// });
-
-// export const dbEndpoint = rdsInstance.endpoint;
+export const dbEndpoint = rdsInstance.endpoint;
