@@ -1,0 +1,6 @@
+/pulumi/bin/
+/pulumi/node_modules/
+
+
+/tofu/.terraform/providers
+/tofu/.terraform.lock.hcl
